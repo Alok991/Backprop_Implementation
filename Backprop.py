@@ -99,6 +99,18 @@ for i in range(NUM_OF_ITERATION):
         """
         BACKPROPOGATION START HERE !!
         """
+        hidden_delta = np.array([])
+        # error delta for output layer
+        err = output_out - label[j]
+        output_delta = activation_grad(output_out)*err
 
-
-        
+        # error delta for hidden layers
+        next_layer_delta = output_delta
+        for k, hidden_layer in enumerate(reversed(hidden_out)):
+            k = len(hidden_out) - k - 1
+            if k == len(hidden_out)-1:
+                next_layer_delta = activation_grad(output_out)*sum(output_delta*(w_h_o))
+            else:
+                next_layer_delta = activation_grad(hidden_out[k])*sum(next_layer_delta*w_hi_hj[k])
+            hidden_delta = np.concatenate((hidden_delta, next_layer_delta), axis=0)
+        print(hidden_delta)
