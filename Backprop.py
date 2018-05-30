@@ -11,111 +11,94 @@ Objective: To implement a Backprop demo
 import numpy as np
 import pandas as pd
 
-def elem_wise_multiply_and_add(input, weights, bias):
-    return (sum([i*w for i, w in zip(input, weights)]) + bias)
+# +1 for bias node
+INPUT_LAYER_DIM = 2 + 1
+HIDDEN_LAYER_DIM = 3
+OUTPUT_LAYER_DIM = 1
 
-
-def apply_activation_function(output, func):
-    return [func(output_i) for output_i in output]
-
-def RMSE(output, labels):
-    return sum([((out-label)**2)/2 for out, label in zip(output, labels)])**0.5
-
-class Neuron(object):
-    
-    def __init__(self, w, b, neuron_id):
-        self.w = w
-        self.b = b
-        self.next_layer_grad = 0
-        self.net = None
-        self.out = None
-        self.neuron_id = neuron_id
-
-    def update_weights(self, grad):
-        self.next_layer_grad = grad
-        self.w = self.w - alpha*self.next_layer_grad
-
-INPUT_DIM = 2
-num_of_hidden_layers = 2
-OUTPUT_DIM = 1
+NUM_OF_HIDDEN_LAYERS = 2
 
 NUM_OF_ITERATION = 5
 
-num_of_neurons_hidden_layer = [3, 3]
 
 # Learning Rate
 alpha = 0.1
-
-assert (len(num_of_neurons_hidden_layer) == num_of_hidden_layers), "Please specify the number of neurons for each layer. expected {0}, got {1}".format(num_of_hidden_layers, len(num_of_neurons_hidden_layer))
 
 activation_function = None
 activation_grad = None
 
 def RELU(input):
     # RELU
-    return (input if input > 0 else 0)
+    input = input.copy()
+    input[input<0]=0
+    return input
 
 def RELU_grad(input):
-    return 1 if input > 0 else 0
+    # RELU_grad
+    input = input.copy()
+    input[input<=0]=0
+    input[input>0]=1
+    return input
 
 activation_function = RELU
 activation_grad = RELU_grad
 
-layers = []
-layers.append(list(Neuron(1, 0.1, "input_{}".format(i)) for i in range((INPUT_DIM))))
-
-for idx, num_of_hidden_neuron in enumerate(num_of_neurons_hidden_layer):
-    last_layer_neurons = INPUT_DIM if idx == 0 else num_of_neurons_hidden_layer[idx-1]
-    layers.append([Neuron(np.random.uniform(-2,2,(last_layer_neurons,1)), 0.1,"hidden{}_{}".format(idx, i)) for i in range(num_of_hidden_neuron)])
-    # layers.append([{"w":np.random.uniform(-2,2,(last_layer_neurons,1)), "b":0.1,"grad":0, "neuron_id":"hidden{}_{}".format(idx, i)} for i in range(num_of_hidden_neuron)])
-
-
-
-layers.append(list(Neuron(np.random.uniform(-2,2,(num_of_neurons_hidden_layer[-1],1)), 0.1, "output_{}".format(i)) for i in range(OUTPUT_DIM)))
-# layers.append(list({"w":np.random.uniform(-2,2,(num_of_neurons_hidden_layer[-1],1)), "b":0.1,"grad":0, "neuron_id":"output_{}".format(i)} for i in range(OUTPUT_DIM)))
-
-
 df = pd.read_csv("DATA.csv")
 
-input_x = df["x"]
-input_y = df["y"]
-
+input_xy = [(x,y, 1) for x, y in zip(df["x"], df["y"])]
 label = df["z"]
 
-for each_iteration in range(NUM_OF_ITERATION):
-    for x, y in zip(input_x,input_y):
-        h1_input = (x*layers[0][0].w, y*layers[0][1].w)
+# This will store the output of activation function of neurons
+input_out = np.zeros(shape=(INPUT_LAYER_DIM))+1
+hidden_out = np.zeros(shape=(NUM_OF_HIDDEN_LAYERS, HIDDEN_LAYER_DIM))+1
+output_out = np.zeros(shape=(OUTPUT_LAYER_DIM))+1
+
+
+def make_random_array(a, *b):
+    return np.random.randint(-100,100, size=(a,*b)).astype(np.float)/100
+
+
+# These are the weights between layers
+
+# w[0] = first neuron of input layer to all neurons on hidden layer
+w_i_h1 = make_random_array(INPUT_LAYER_DIM, HIDDEN_LAYER_DIM)
+
+# w[0] = 2D matrix of weights between hi and hj hidden layers
+w_hi_hj = make_random_array(NUM_OF_HIDDEN_LAYERS, HIDDEN_LAYER_DIM, HIDDEN_LAYER_DIM)
+
+# w[0] = first neuron of hidden layer to all neurons on output layer
+w_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
+
+# c[0] = first neuron of input layer to all neurons on hidden layer
+c_i_h1 = make_random_array(INPUT_LAYER_DIM, HIDDEN_LAYER_DIM)
+
+# c[0] = 2D matrix of weights between hi and hj hidden layers
+c_hi_hj = make_random_array(NUM_OF_HIDDEN_LAYERS, HIDDEN_LAYER_DIM, HIDDEN_LAYER_DIM)
+
+# c[0] = first neuron of hidden layer to all neurons on output layer
+c_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
+
+
+for i in range(NUM_OF_ITERATION):
+    for j, inp in enumerate(input_xy):
+        # output of input layer(same as input to network)
+        input_out = np.array(inp)
+
+        # output of hidden layers
+        for k, hidden_layer in enumerate(hidden_out):
+            if k == 0:
+                # out hidden_layer 1
+                hidden_out[k] = activation_function((input_out.dot(w_i_h1)))
+            else:
+                # out layers ...
+                hidden_out[k] = activation_function((hidden_out[k-1].dot(w_hi_hj[k])))
+
+        # output of last layer
+        output_out = (hidden_out[-1].dot(w_h_o))
+
+        """
+        BACKPROPOGATION START HERE !!
+        """
+
+
         
-        layer_i_input = h1_input
-        for layer_i in layers[1:-1]:
-            hidden_out = []
-            for neuron_i in layer_i:
-                hidden_out.append(elem_wise_multiply_and_add(layer_i_input, neuron_i.w, neuron_i.b))
-            hidden_out = apply_activation_function(hidden_out, activation_function)
-            layer_i_input = hidden_out
-
-        output_layer_input = layer_i_input
-        output = []
-        for neuron_i in layers[-1]:
-            output.append(elem_wise_multiply_and_add(output_layer_input, neuron_i.w, neuron_i.b))
-            output = apply_activation_function(output, activation_function)
-        # Now we will calculate the error and update the weights
-
-        loss = RMSE(output, label)
-        # print("iteration = {0}, loss = {1}".format(each_iteration, loss))
-        
-
-
-        
-
-
-
-        
-
-
-
-
-
-
-
-
