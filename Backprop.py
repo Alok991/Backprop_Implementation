@@ -10,6 +10,7 @@ Objective: To implement a Backprop demo
 
 import numpy as np
 import pandas as pd
+import math
 
 # +1 for bias node
 INPUT_LAYER_DIM = 2 + 1
@@ -18,35 +19,29 @@ OUTPUT_LAYER_DIM = 1
 
 NUM_OF_HIDDEN_LAYERS = 2
 
-NUM_OF_ITERATION = 5
+NUM_OF_ITERATION = 5000
 
 
 # Learning Rate
 alpha = 0.1
+momentum = 0.5
 
 activation_function = None
 activation_grad = None
 
-def RELU(input):
-    # RELU
-    input = input.copy()
-    input[input<0]=0
-    return input
+def tanh(input):
+    return np.array([math.tanh(inp) for inp in input])
 
-def RELU_grad(input):
-    # RELU_grad
-    input = input.copy()
-    input[input<=0]=0
-    input[input>0]=1
-    return input
+def tanh_grad(input):
+    return np.array([(1.0 - inp**2) for inp in input])
 
-activation_function = RELU
-activation_grad = RELU_grad
+activation_function = tanh
+activation_grad = tanh_grad
 
 df = pd.read_csv("DATA.csv")
 
 input_xy = [(x,y, 1) for x, y in zip(df["x"], df["y"])]
-label = df["z"]
+label_z = df["z"]
 
 # This will store the output of activation function of neurons
 input_out = np.zeros(shape=(INPUT_LAYER_DIM))+1
@@ -64,7 +59,7 @@ def make_random_array(a, *b):
 w_i_h1 = make_random_array(INPUT_LAYER_DIM, HIDDEN_LAYER_DIM)
 
 # w[0] = 2D matrix of weights between hi and hj hidden layers
-w_hi_hj = make_random_array(NUM_OF_HIDDEN_LAYERS, HIDDEN_LAYER_DIM, HIDDEN_LAYER_DIM)
+w_hi_hj = make_random_array(NUM_OF_HIDDEN_LAYERS-1, HIDDEN_LAYER_DIM, HIDDEN_LAYER_DIM)
 
 # w[0] = first neuron of hidden layer to all neurons on output layer
 w_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
@@ -73,7 +68,7 @@ w_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
 c_i_h1 = make_random_array(INPUT_LAYER_DIM, HIDDEN_LAYER_DIM)
 
 # c[0] = 2D matrix of weights between hi and hj hidden layers
-c_hi_hj = make_random_array(NUM_OF_HIDDEN_LAYERS, HIDDEN_LAYER_DIM, HIDDEN_LAYER_DIM)
+c_hi_hj = make_random_array(NUM_OF_HIDDEN_LAYERS-1, HIDDEN_LAYER_DIM, HIDDEN_LAYER_DIM)
 
 # c[0] = first neuron of hidden layer to all neurons on output layer
 c_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
@@ -82,6 +77,7 @@ c_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
 for i in range(NUM_OF_ITERATION):
     for j, inp in enumerate(input_xy):
         # output of input layer(same as input to network)
+        label = label_z[j]
         input_out = np.array(inp)
 
         # output of hidden layers
@@ -90,8 +86,7 @@ for i in range(NUM_OF_ITERATION):
                 # out hidden_layer 1
                 hidden_out[k] = activation_function((input_out.dot(w_i_h1)))
             else:
-                # out layers ...
-                hidden_out[k] = activation_function((hidden_out[k-1].dot(w_hi_hj[k])))
+                hidden_out[k] = activation_function((hidden_out[k-1].dot(w_hi_hj[k-1])))
 
         # output of last layer
         output_out = (hidden_out[-1].dot(w_h_o))
@@ -99,18 +94,54 @@ for i in range(NUM_OF_ITERATION):
         """
         BACKPROPOGATION START HERE !!
         """
-        hidden_delta = np.array([])
+        hidden_delta = []
         # error delta for output layer
-        err = output_out - label[j]
+        err = output_out - label
         output_delta = activation_grad(output_out)*err
 
         # error delta for hidden layers
         next_layer_delta = output_delta
         for k, hidden_layer in enumerate(reversed(hidden_out)):
             k = len(hidden_out) - k - 1
+            # last hidden layer
             if k == len(hidden_out)-1:
-                next_layer_delta = activation_grad(output_out)*sum(output_delta*(w_h_o))
+                err = next_layer_delta.dot(w_h_o.T)
             else:
-                next_layer_delta = activation_grad(hidden_out[k])*sum(next_layer_delta*w_hi_hj[k])
-            hidden_delta = np.concatenate((hidden_delta, next_layer_delta), axis=0)
-        print(hidden_delta)
+                err = next_layer_delta.dot(w_hi_hj[k].T)
+            
+            this_hidden_layer_delta = activation_grad(hidden_out[k])*err
+            next_layer_delta = this_hidden_layer_delta
+            hidden_delta.insert(0, this_hidden_layer_delta)
+
+        hidden_delta = np.array(hidden_delta)
+        
+        # update the intput weights ==> w_i_h1
+        w_i_h1 = w_i_h1 + momentum*c_i_h1 + alpha*((input_out.T).dot(hidden_delta[0]))
+        c_i_h1 = (input_out.T).dot(hidden_delta[0])
+
+        # update inter-hidden layer weights
+        for k in range(len(w_hi_hj)):
+            w_hi_hj[k] = w_hi_hj[k] + momentum*c_hi_hj[k] + alpha*((hidden_out[k].T).dot(hidden_delta[k]))
+            c_hi_hj[k] = (hidden_out[k].T).dot(hidden_delta[k])
+
+
+
+
+
+for j, inp in enumerate(input_xy):
+    # output of input layer(same as input to network)
+    label = label_z[j]
+    input_out = np.array(inp)
+
+    # output of hidden layers
+    for k, hidden_layer in enumerate(hidden_out):
+        if k == 0:
+            # out hidden_layer 1
+            hidden_out[k] = activation_function((input_out.dot(w_i_h1)))
+        else:
+            hidden_out[k] = activation_function((hidden_out[k-1].dot(w_hi_hj[k-1])))
+
+    # output of last layer
+    output_out = (hidden_out[-1].dot(w_h_o))
+    err = output_out - label
+    print(err, output_out, label)
