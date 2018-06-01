@@ -14,17 +14,18 @@ import math
 
 # +1 for bias node
 INPUT_LAYER_DIM = 2 + 1
-HIDDEN_LAYER_DIM = 3
+HIDDEN_LAYER_DIM = 2
 OUTPUT_LAYER_DIM = 1
 
-NUM_OF_HIDDEN_LAYERS = 2
+NUM_OF_HIDDEN_LAYERS = 1
 
 NUM_OF_ITERATION = 5000
 
 
 # Learning Rate
-alpha = 0.1
-momentum = 0.5
+alpha = 0.01
+
+momentum = 0.01
 
 activation_function = None
 activation_grad = None
@@ -116,8 +117,8 @@ for i in range(NUM_OF_ITERATION):
         hidden_delta = np.array(hidden_delta)
         
         # update the intput weights ==> w_i_h1
-        w_i_h1 = w_i_h1 + momentum*c_i_h1 + alpha*((input_out.T).dot(hidden_delta[0]))
-        c_i_h1 = (input_out.T).dot(hidden_delta[0])
+        w_i_h1 = w_i_h1 + momentum*c_i_h1 + alpha*(input_out.reshape((-1,1)).dot(hidden_delta[0].reshape((1,-1))))
+        c_i_h1 = input_out.reshape((-1,1)).dot(hidden_delta[0].reshape((1,-1)))
 
         # update inter-hidden layer weights
         for k in range(len(w_hi_hj)):
