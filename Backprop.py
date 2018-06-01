@@ -14,12 +14,12 @@ import math
 
 # +1 for bias node
 INPUT_LAYER_DIM = 2 + 1
-HIDDEN_LAYER_DIM = 2
+HIDDEN_LAYER_DIM = 3
 OUTPUT_LAYER_DIM = 1
 
-NUM_OF_HIDDEN_LAYERS = 1
+NUM_OF_HIDDEN_LAYERS = 2
 
-NUM_OF_ITERATION = 5000
+NUM_OF_ITERATION = 10000
 
 
 # Learning Rate
@@ -30,11 +30,21 @@ momentum = 0.01
 activation_function = None
 activation_grad = None
 
+
+def nearest_int(x):
+    return 1 if x>0.5 else 0
+
 def tanh(input):
     return np.array([math.tanh(inp) for inp in input])
 
 def tanh_grad(input):
     return np.array([(1.0 - inp**2) for inp in input])
+
+def RELU(input):
+    return [x if x>0 else 0 for x in input]
+
+def RELU_grad(input):
+    return [1 if x>0 else 0 for x in input]
 
 activation_function = tanh
 activation_grad = tanh_grad
@@ -75,6 +85,7 @@ c_hi_hj = make_random_array(NUM_OF_HIDDEN_LAYERS-1, HIDDEN_LAYER_DIM, HIDDEN_LAY
 c_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
 
 
+print("Learning...")
 for i in range(NUM_OF_ITERATION):
     for j, inp in enumerate(input_xy):
         # output of input layer(same as input to network)
@@ -90,7 +101,7 @@ for i in range(NUM_OF_ITERATION):
                 hidden_out[k] = activation_function((hidden_out[k-1].dot(w_hi_hj[k-1])))
 
         # output of last layer
-        output_out = (hidden_out[-1].dot(w_h_o))
+        output_out = activation_function(hidden_out[-1].dot(w_h_o))
 
         """
         BACKPROPOGATION START HERE !!
@@ -117,18 +128,20 @@ for i in range(NUM_OF_ITERATION):
         hidden_delta = np.array(hidden_delta)
         
         # update the intput weights ==> w_i_h1
-        w_i_h1 = w_i_h1 + momentum*c_i_h1 + alpha*(input_out.reshape((-1,1)).dot(hidden_delta[0].reshape((1,-1))))
+        w_i_h1 = w_i_h1 - momentum*c_i_h1 - alpha*(input_out.reshape((-1,1)).dot(hidden_delta[0].reshape((1,-1))))
         c_i_h1 = input_out.reshape((-1,1)).dot(hidden_delta[0].reshape((1,-1)))
 
         # update inter-hidden layer weights
         for k in range(len(w_hi_hj)):
-            w_hi_hj[k] = w_hi_hj[k] + momentum*c_hi_hj[k] + alpha*((hidden_out[k].T).dot(hidden_delta[k]))
+            w_hi_hj[k] = w_hi_hj[k] - momentum*c_hi_hj[k] - alpha*((hidden_out[k].T).dot(hidden_delta[k]))
             c_hi_hj[k] = (hidden_out[k].T).dot(hidden_delta[k])
+    if i%1000 == 0 :
+        print("iteration {0} completed".format(i))
 
 
 
 
-
+print("After Learning...")
 for j, inp in enumerate(input_xy):
     # output of input layer(same as input to network)
     label = label_z[j]
@@ -145,4 +158,4 @@ for j, inp in enumerate(input_xy):
     # output of last layer
     output_out = (hidden_out[-1].dot(w_h_o))
     err = output_out - label
-    print(err, output_out, label)
+    print("input => {0}, output => {1}".format(label, nearest_int(output_out)))
