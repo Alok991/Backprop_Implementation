@@ -87,6 +87,7 @@ c_h_o = make_random_array(HIDDEN_LAYER_DIM, OUTPUT_LAYER_DIM)
 
 print("Learning...")
 for i in range(NUM_OF_ITERATION):
+    alpha = alpha/(i+1)
     for j, inp in enumerate(input_xy):
         # output of input layer(same as input to network)
         label = label_z[j]
@@ -158,4 +159,4 @@ for j, inp in enumerate(input_xy):
     # output of last layer
     output_out = (hidden_out[-1].dot(w_h_o))
     err = output_out - label
-    print("input => {0}, output => {1}".format(label, nearest_int(output_out)))
+    print("Expected output => {0}, Real output => {1}".format(label, nearest_int(output_out)))
