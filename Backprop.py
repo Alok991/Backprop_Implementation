@@ -160,3 +160,6 @@ for j, inp in enumerate(input_xy):
     output_out = (hidden_out[-1].dot(w_h_o))
     err = output_out - label
     print("Expected output => {0}, Real output => {1}".format(label, nearest_int(output_out)))
+
+
+# https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
